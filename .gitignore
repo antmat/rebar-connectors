@@ -1,0 +1,17 @@
+.DS_Store
+.superpowers/
+docs/superpowers/
+tests/__pycache__/
+*.py[cod]
+
+/rebar_connectors.3mf
+/rebar_connectors.stl
+
+build/*
+!build/lower_3way.stl
+!build/upper_4way.stl
+!build/apex_8way.stl
+!build/fit_test.stl
+!build/print_set.stl
+!build/assembly_preview.png
+!build/assembly_preview_side.png
