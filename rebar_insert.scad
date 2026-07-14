@@ -19,7 +19,7 @@ Flange_Thickness_mm = 1.2; // [0.6:0.2:3]
 fitStep = 0.1;
 fudge = 0.02;
 markerDiameter = 1.2;
-markerRadius = Flange_D_mm / 2 - markerDiameter / 4;
+markerRadius = Flange_D_mm / 2;
 
 function _fitIndex(fit) =
     fit == "loose" ? 0
@@ -52,7 +52,7 @@ module _validateParameters() {
 
 module _markerBumps(count) {
     for (index = [0 : count - 1]) {
-        angle = 180 + (index - (count - 1) / 2) * 18;
+        angle = 270 + (index - (count - 1) / 2) * 18;
         translate([
             markerRadius * cos(angle),
             markerRadius * sin(angle),
