@@ -15,4 +15,9 @@ build/*
 !build/print_set.stl
 !build/assembly_preview.png
 !build/assembly_preview_side.png
+!build/tpu_insert_loose.stl
+!build/tpu_insert_medium.stl
+!build/tpu_insert_tight.stl
+!build/tpu_insert_fit_set.stl
+!build/tpu_insert_fit_set.png
 .worktrees/
