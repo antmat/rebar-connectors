@@ -34,6 +34,7 @@ Flange_Thickness_mm = 2.4; // [0.8:0.2:5]
 /* [Cap and seating driver] */
 
 Cap_Thickness_mm = 0.5; // [0.2:0.1:2]
+Cap_D_mm = 11.8; // [10:0.1:14]
 Driver_Diametral_Clearance_mm = 0.6; // [0.2:0.1:2]
 Driver_Outer_D_mm = 22; // [16:0.5:35]
 Driver_Length_mm = 35; // [30:1:80]
@@ -111,6 +112,10 @@ module _validateParameters() {
     assert(Calibration_Length_mm > 0
         && Calibration_Length_mm < Socket_Depth_mm,
         "Calibration_Length_mm must be positive and shorter than the socket");
+    assert(Full_Length_mm + Cap_Thickness_mm <= Socket_Depth_mm,
+        "Capped full body must fit Socket_Depth_mm");
+    assert(Calibration_Length_mm + Cap_Thickness_mm <= Socket_Depth_mm,
+        "Capped calibration body must fit Socket_Depth_mm");
     assert(Flange_D_mm > _cageDiameter("vtight"),
         "Flange_D_mm must exceed every cage diameter");
     assert(Flange_Thickness_mm > 0,
@@ -123,6 +128,10 @@ module _validateParameters() {
         "Entry diameter must stay inside Flange_D_mm");
     assert(Cap_Thickness_mm > 0,
         "Cap_Thickness_mm must be positive");
+    assert(Cap_D_mm > _coreBoreDiameter(),
+        "Cap_D_mm must exceed the core bore diameter");
+    assert(Cap_D_mm <= _cageDiameter("vloose"),
+        "Cap_D_mm must not exceed the smallest cage diameter");
     assert(Driver_Diametral_Clearance_mm > 0,
         "Driver_Diametral_Clearance_mm must be positive");
     assert(_driverInnerDiameter() > _cageDiameter("vtight"),
@@ -181,6 +190,31 @@ module _throughSlots(slotWidth, totalHeight, cageDiameter) {
     }
 }
 
+module _capJoinBands(fit, totalHeight, cageDiameter) {
+    difference() {
+        translate([0, 0, totalHeight - capJoinOverlap])
+            cylinder(
+                d=Cap_D_mm,
+                h=capJoinOverlap + fudge
+            );
+        translate([0, 0, -fudge])
+            cylinder(
+                d=_coreBoreDiameter(),
+                h=totalHeight + 2 * fudge
+            );
+        _helicalCutters(
+            slotWidth=Rib_Slot_Width_mm,
+            totalHeight=totalHeight,
+            outerRadius=_grooveOuterRadius(fit)
+        );
+        _throughSlots(
+            slotWidth=Rib_Slot_Width_mm,
+            totalHeight=totalHeight,
+            cageDiameter=cageDiameter
+        );
+    }
+}
+
 module helicalInsert(fit, workingLength, markerCount) {
     totalHeight = Flange_Thickness_mm + workingLength;
     cageDiameter = _cageDiameter(fit);
@@ -191,7 +225,7 @@ module helicalInsert(fit, workingLength, markerCount) {
                 translate([0, 0, Flange_Thickness_mm - fudge])
                     cylinder(
                         d=cageDiameter,
-                        h=workingLength + fudge + capJoinOverlap
+                        h=workingLength + fudge
                     );
                 _markerBumps(markerCount);
             }
@@ -217,8 +251,13 @@ module helicalInsert(fit, workingLength, markerCount) {
                 cageDiameter=cageDiameter
             );
         }
+        _capJoinBands(
+            fit=fit,
+            totalHeight=totalHeight,
+            cageDiameter=cageDiameter
+        );
         translate([0, 0, totalHeight])
-            cylinder(d=cageDiameter, h=Cap_Thickness_mm);
+            cylinder(d=Cap_D_mm, h=Cap_Thickness_mm);
     }
 }
 
@@ -322,6 +361,7 @@ module _diagnostics() {
             " flange_d=", Flange_D_mm,
             " flange_t=", Flange_Thickness_mm,
             " cap_t=", Cap_Thickness_mm,
+            " cap_d=", Cap_D_mm,
             " driver_inner_d=", _driverInnerDiameter(),
             " driver_outer_d=", Driver_Outer_D_mm,
             " driver_length=", Driver_Length_mm

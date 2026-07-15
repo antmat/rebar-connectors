@@ -6,6 +6,7 @@ from pathlib import Path
 from scad_test_utils import ROOT, inspect_binary_stl, run_openscad
 
 MODEL = ROOT / "rebar_insert.scad"
+CONNECTOR_MODEL = ROOT / "rebar_connectors.scad"
 PROBE_MODEL = ROOT / "tests" / "helical_insert_probes.scad"
 EXPORT_SCRIPT = ROOT / "scripts" / "render_rebar_insert.sh"
 
@@ -129,6 +130,29 @@ class HelicalInsertTest(unittest.TestCase):
                     self.assertIn("marker_count", metrics)
                     self.assertEqual(metrics["marker_count"], marker_count)
                     self.assertAlmostEqual(metrics["cap_t"], 0.5)
+                    self.assertAlmostEqual(metrics["cap_d"], 11.8)
+
+    def test_cap_has_clearance_in_actual_connector_bore(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            insert_metrics = read_metrics("full", "medium", directory)
+            output = Path(directory) / "connector.echo"
+            result = run_openscad(
+                CONNECTOR_MODEL,
+                output,
+                defines=('Part="lower_3way"', "Diagnostics=true"),
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            connector_metrics = {
+                name: float(value)
+                for name, value in re.findall(
+                    r"([a-z_]+)=(-?[0-9.]+)",
+                    output.read_text(),
+                )
+            }
+        self.assertAlmostEqual(
+            connector_metrics["hole_d"] - insert_metrics["cap_d"],
+            0.4,
+        )
 
     def test_tight_insert_may_exceed_reference_socket_diameter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -225,10 +249,58 @@ class HelicalInsertTest(unittest.TestCase):
         self.assertAlmostEqual(metrics["driver_outer_d"], 22.0)
         self.assertAlmostEqual(metrics["driver_length"], 35.0)
 
+    def test_driver_bore_is_open_near_both_end_faces(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            reference_result, reference_output = render_probe(
+                "driver_bore_reference",
+                directory,
+            )
+            self.assertEqual(
+                reference_result.returncode,
+                0,
+                reference_result.stdout + reference_result.stderr,
+            )
+            result, output = render_probe("driver_bore_void", directory)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            reference = inspect_binary_stl(reference_output)
+            stats = inspect_binary_stl(output)
+        self.assertEqual(stats.nonmanifold_edges, 0)
+        self.assertEqual(stats.components, 2)
+        self.assertAlmostEqual(
+            stats.volume,
+            reference.volume,
+            delta=reference.volume * 0.05,
+        )
+
+    def test_capped_lengths_must_fit_socket_depth(self) -> None:
+        cases = (
+            (
+                ("Full_Length_mm=29", "Cap_Thickness_mm=2"),
+                "Capped full body must fit Socket_Depth_mm",
+            ),
+            (
+                ("Calibration_Length_mm=29.7", "Cap_Thickness_mm=0.5"),
+                "Capped calibration body must fit Socket_Depth_mm",
+            ),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            for index, (defines, message) in enumerate(cases):
+                with self.subTest(defines=defines):
+                    output = Path(directory) / f"invalid-capped-{index}.stl"
+                    result = run_openscad(
+                        MODEL,
+                        output,
+                        defines=defines,
+                        extra_args=("--export-format", "binstl"),
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn(message, result.stdout + result.stderr)
+
     def test_cap_is_solid_and_bore_stays_open_below_it(self) -> None:
         cases = (
             ("cap_reference", "cap_solid", 3),
             ("below_cap_reference", "below_cap_void", 1),
+            ("below_cap_slots_reference", "below_cap_slots_void", 2),
         )
         with tempfile.TemporaryDirectory() as directory:
             for reference_probe, insert_probe, components in cases:

@@ -1,6 +1,6 @@
 include <../rebar_insert.scad>
 
-Probe = "reference"; // [reference, slot_void, band_solid, entry_reference_low, entry_void, entry_reference_high, entry_wall, cap_reference, cap_solid, below_cap_reference, below_cap_void]
+Probe = "reference"; // [reference, slot_void, band_solid, entry_reference_low, entry_void, entry_reference_high, entry_wall, cap_reference, cap_solid, below_cap_reference, below_cap_void, below_cap_slots_reference, below_cap_slots_void, driver_bore_reference, driver_bore_void]
 
 probeDiameter = 0.3;
 probeZ = Helix_Lead_mm / 8;
@@ -11,6 +11,10 @@ entryLowZ = 0.1;
 entryHighZ = Flange_Thickness_mm - 0.1;
 capProbeZ = Flange_Thickness_mm + Full_Length_mm + Cap_Thickness_mm / 2;
 belowCapProbeZ = Flange_Thickness_mm + Full_Length_mm - 0.2;
+belowCapSlotsProbeZ =
+    Flange_Thickness_mm + Full_Length_mm - capJoinOverlap / 2;
+driverNearProbeZ = 0.2;
+driverFarProbeZ = Driver_Length_mm - 0.2;
 
 module probePair(angleOffset) {
     for (start = [0 : 1]) {
@@ -41,17 +45,22 @@ module axialProbe(z) {
         sphere(d=probeDiameter, $fn=48);
 }
 
-module probePairAt(z, angleOffset) {
+module probePairAt(z, angleOffset, diameter=probeDiameter) {
     angle = 360 * z / Helix_Lead_mm;
     for (start = [0 : 1])
         rotate([0, 0, angle + start * 180 + angleOffset])
             translate([probeRadius, 0, z])
-                sphere(d=probeDiameter, $fn=48);
+                sphere(d=diameter, $fn=48);
 }
 
 module capProbeSet() {
     axialProbe(capProbeZ);
     probePairAt(capProbeZ, 0);
+}
+
+module driverBoreProbeSet() {
+    axialProbe(driverNearProbeZ);
+    axialProbe(driverFarProbeZ);
 }
 
 if (Probe == "reference")
@@ -93,6 +102,28 @@ else if (Probe == "below_cap_void")
     difference() {
         axialProbe(belowCapProbeZ);
         fullInsert();
+    }
+else if (Probe == "below_cap_slots_reference")
+    probePairAt(
+        belowCapSlotsProbeZ,
+        0,
+        diameter=capJoinOverlap / 2
+    );
+else if (Probe == "below_cap_slots_void")
+    difference() {
+        probePairAt(
+            belowCapSlotsProbeZ,
+            0,
+            diameter=capJoinOverlap / 2
+        );
+        fullInsert();
+    }
+else if (Probe == "driver_bore_reference")
+    driverBoreProbeSet();
+else if (Probe == "driver_bore_void")
+    difference() {
+        driverBoreProbeSet();
+        driverTool();
     }
 else
     assert(false, str("Unsupported Probe: ", Probe));
