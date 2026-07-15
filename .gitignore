@@ -15,9 +15,9 @@ build/*
 !build/print_set.stl
 !build/assembly_preview.png
 !build/assembly_preview_side.png
-!build/helical_insert_calibration_narrow.stl
+!build/helical_insert_calibration_loose.stl
 !build/helical_insert_calibration_medium.stl
-!build/helical_insert_calibration_wide.stl
+!build/helical_insert_calibration_tight.stl
 !build/helical_insert_calibration_set.stl
 !build/helical_insert_full_medium.stl
 !build/helical_insert_calibration_set.png

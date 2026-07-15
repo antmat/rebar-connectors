@@ -16,7 +16,7 @@ run_scad() {
 
 mkdir -p "$ROOT/build"
 
-for fit in narrow medium wide; do
+for fit in loose medium tight; do
     run_scad \
         --backend Manifold \
         --hardwarnings \

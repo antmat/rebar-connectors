@@ -7,6 +7,7 @@ from scad_test_utils import ROOT, inspect_binary_stl, run_openscad
 
 MODEL = ROOT / "rebar_insert.scad"
 PROBE_MODEL = ROOT / "tests" / "helical_insert_probes.scad"
+EXPORT_SCRIPT = ROOT / "scripts" / "render_rebar_insert.sh"
 
 FIT_DIMENSIONS = {
     "loose": (1.2, 12.2),
@@ -64,6 +65,12 @@ def render_probe(probe: str, directory: str):
 
 
 class HelicalInsertTest(unittest.TestCase):
+    def test_export_script_uses_wall_fit_names(self) -> None:
+        script = EXPORT_SCRIPT.read_text()
+        self.assertIn("for fit in loose medium tight", script)
+        self.assertNotIn("narrow", script)
+        self.assertNotIn("wide", script)
+
     def test_calibration_length_must_fit_socket_depth(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "too-long-calibration.stl"
