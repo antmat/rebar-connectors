@@ -3,7 +3,7 @@ import os
 import platform
 import struct
 import subprocess
-from collections import Counter
+from collections import Counter, defaultdict, deque
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,6 +54,7 @@ class MeshStats:
     bounds_min: tuple[float, float, float]
     bounds_max: tuple[float, float, float]
     nonmanifold_edges: int
+    components: int
 
     @property
     def dimensions(self) -> tuple[float, float, float]:
@@ -87,6 +88,13 @@ def inspect_binary_stl(path: Path) -> MeshStats:
     minimum = [math.inf, math.inf, math.inf]
     maximum = [-math.inf, -math.inf, -math.inf]
     signed_volume = 0.0
+    triangle_vertices: list[
+        tuple[
+            tuple[float, float, float],
+            tuple[float, float, float],
+            tuple[float, float, float],
+        ]
+    ] = []
 
     for index in range(triangle_count):
         offset = 84 + index * 50 + 12
@@ -96,6 +104,7 @@ def inspect_binary_stl(path: Path) -> MeshStats:
             (values[3], values[4], values[5]),
             (values[6], values[7], values[8]),
         ]
+        triangle_vertices.append(tuple(vertices))
         for vertex in vertices:
             for axis, value in enumerate(vertex):
                 minimum[axis] = min(minimum[axis], value)
@@ -110,10 +119,32 @@ def inspect_binary_stl(path: Path) -> MeshStats:
             edge = tuple(sorted((_vertex_key(start), _vertex_key(end))))
             edge_counts[edge] += 1
 
+    triangles_by_vertex: defaultdict[
+        tuple[float, float, float],
+        list[int],
+    ] = defaultdict(list)
+    for triangle_index, vertices in enumerate(triangle_vertices):
+        for vertex in vertices:
+            triangles_by_vertex[_vertex_key(vertex)].append(triangle_index)
+
+    unseen = set(range(triangle_count))
+    components = 0
+    while unseen:
+        components += 1
+        queue = deque([unseen.pop()])
+        while queue:
+            triangle_index = queue.popleft()
+            for vertex in triangle_vertices[triangle_index]:
+                for neighbor in triangles_by_vertex[_vertex_key(vertex)]:
+                    if neighbor in unseen:
+                        unseen.remove(neighbor)
+                        queue.append(neighbor)
+
     return MeshStats(
         triangles=triangle_count,
         volume=abs(signed_volume),
         bounds_min=tuple(minimum),
         bounds_max=tuple(maximum),
         nonmanifold_edges=sum(count != 2 for count in edge_counts.values()),
+        components=components,
     )

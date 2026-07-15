@@ -1,0 +1,158 @@
+import re
+import tempfile
+import unittest
+from pathlib import Path
+
+from scad_test_utils import ROOT, inspect_binary_stl, run_openscad
+
+MODEL = ROOT / "rebar_insert.scad"
+PROBE_MODEL = ROOT / "tests" / "helical_insert_probes.scad"
+
+FIT_WIDTHS = {
+    "narrow": 2.9,
+    "medium": 3.1,
+    "wide": 3.3,
+}
+
+
+def render_model(
+    part: str,
+    directory: str,
+    fit: str = "medium",
+):
+    output = Path(directory) / f"{part}-{fit}.stl"
+    result = run_openscad(
+        MODEL,
+        output,
+        defines=(f'Part="{part}"', f'Fit="{fit}"'),
+        extra_args=("--export-format", "binstl"),
+    )
+    return result, output
+
+
+def read_metrics(part: str, fit: str, directory: str) -> dict[str, float]:
+    output = Path(directory) / f"{part}-{fit}.echo"
+    result = run_openscad(
+        MODEL,
+        output,
+        defines=(
+            f'Part="{part}"',
+            f'Fit="{fit}"',
+            "Diagnostics=true",
+        ),
+    )
+    if result.returncode != 0:
+        raise AssertionError(result.stdout + result.stderr)
+    return {
+        name: float(value)
+        for name, value in re.findall(
+            r"([a-z_]+)=(-?[0-9.]+)",
+            output.read_text(),
+        )
+    }
+
+
+def render_probe(probe: str, directory: str):
+    output = Path(directory) / f"{probe}.stl"
+    result = run_openscad(
+        PROBE_MODEL,
+        output,
+        defines=("Render_Model=false", f'Probe="{probe}"'),
+        extra_args=("--export-format", "binstl"),
+    )
+    return result, output
+
+
+class HelicalInsertTest(unittest.TestCase):
+    def test_calibration_metrics_match_measured_rebar(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            for fit, expected_width in FIT_WIDTHS.items():
+                with self.subTest(fit=fit):
+                    metrics = read_metrics(
+                        "calibration_single",
+                        fit,
+                        directory,
+                    )
+                    self.assertAlmostEqual(metrics["core_d"], 9.1)
+                    self.assertAlmostEqual(metrics["bore_d"], 9.5)
+                    self.assertAlmostEqual(metrics["rebar_max_d"], 11.3)
+                    self.assertAlmostEqual(metrics["rib_width"], 2.5)
+                    self.assertAlmostEqual(metrics["cage_d"], 12.0)
+                    self.assertAlmostEqual(metrics["slot_width"], expected_width)
+                    self.assertAlmostEqual(metrics["working_length"], 12.0)
+                    self.assertAlmostEqual(metrics["lead"], 45.0)
+                    self.assertEqual(metrics["starts"], 2)
+                    self.assertEqual(metrics["hand_sign"], 1)
+
+    def test_calibration_single_is_one_printable_component(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result, output = render_model(
+                "calibration_single",
+                directory,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            stats = inspect_binary_stl(output)
+        self.assertEqual(stats.nonmanifold_edges, 0)
+        self.assertEqual(stats.components, 1)
+        self.assertGreater(stats.volume, 100)
+        self.assertAlmostEqual(stats.bounds_min[2], 0.0, places=3)
+        self.assertAlmostEqual(stats.dimensions[2], 14.4, places=3)
+
+    def test_calibration_set_contains_three_separate_parts(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result, output = render_model(
+                "calibration_set",
+                directory,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            stats = inspect_binary_stl(output)
+        self.assertEqual(stats.nonmanifold_edges, 0)
+        self.assertEqual(stats.components, 3)
+        self.assertAlmostEqual(stats.bounds_min[2], 0.0, places=3)
+        self.assertAlmostEqual(stats.dimensions[2], 14.4, places=3)
+        self.assertLess(stats.dimensions[0], 60.0)
+
+    def test_full_insert_is_one_31_4_mm_component(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result, output = render_model("full", directory)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            stats = inspect_binary_stl(output)
+        self.assertEqual(stats.nonmanifold_edges, 0)
+        self.assertEqual(stats.components, 1)
+        self.assertGreater(stats.volume, 250)
+        self.assertAlmostEqual(stats.bounds_min[2], 0.0, places=3)
+        self.assertAlmostEqual(stats.dimensions[2], 31.4, places=3)
+
+    def test_right_hand_slots_are_void_and_quadrature_bands_are_solid(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            reference_result, reference_output = render_probe(
+                "reference",
+                directory,
+            )
+            self.assertEqual(
+                reference_result.returncode,
+                0,
+                reference_result.stdout + reference_result.stderr,
+            )
+            reference = inspect_binary_stl(reference_output)
+
+            for probe in ("slot_void", "band_solid"):
+                with self.subTest(probe=probe):
+                    result, output = render_probe(probe, directory)
+                    self.assertEqual(
+                        result.returncode,
+                        0,
+                        result.stdout + result.stderr,
+                    )
+                    stats = inspect_binary_stl(output)
+                    self.assertEqual(stats.nonmanifold_edges, 0)
+                    self.assertEqual(stats.components, 2)
+                    self.assertAlmostEqual(
+                        stats.volume,
+                        reference.volume,
+                        delta=reference.volume * 0.05,
+                    )
+
+
+if __name__ == "__main__":
+    unittest.main()
