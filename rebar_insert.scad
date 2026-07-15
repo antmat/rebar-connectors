@@ -46,12 +46,13 @@ function _slotWidth(fit) =
     Rib_Width_mm
     + 2 * (fitClearanceStart + _fitIndex(fit) * fitClearanceStep);
 function _coreBoreDiameter() = Core_D_mm + Core_Clearance_mm;
-function _handSign() =
-    Helix_Hand == "right" ? 1
-    : Helix_Hand == "left" ? -1
+// OpenSCAD twist turns opposite to rotate(), so right-hand geometry needs -1.
+function _openscadTwistSign() =
+    Helix_Hand == "right" ? -1
+    : Helix_Hand == "left" ? 1
     : assert(false, str("Unsupported Helix_Hand: ", Helix_Hand)) 0;
 function _twist(height) =
-    _handSign() * 360 * height / Helix_Lead_mm;
+    _openscadTwistSign() * 360 * height / Helix_Lead_mm;
 function _slices(height) = max(32, ceil(height / 0.25));
 function _grooveOuterRadius() =
     Rebar_Max_D_mm / 2 + Rib_Radial_Clearance_mm;
@@ -245,7 +246,7 @@ module _diagnostics() {
             " working_length=", _selectedWorkingLength(),
             " lead=", Helix_Lead_mm,
             " starts=", Helix_Starts,
-            " hand_sign=", _handSign(),
+            " twist_sign=", _openscadTwistSign(),
             " flange_d=", Flange_D_mm,
             " flange_t=", Flange_Thickness_mm
         ));

@@ -100,7 +100,7 @@ class HelicalInsertTest(unittest.TestCase):
                     self.assertAlmostEqual(metrics["working_length"], 12.0)
                     self.assertAlmostEqual(metrics["lead"], 45.0)
                     self.assertEqual(metrics["starts"], 2)
-                    self.assertEqual(metrics["hand_sign"], 1)
+                    self.assertEqual(metrics["twist_sign"], -1)
 
     def test_calibration_single_is_one_printable_component(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

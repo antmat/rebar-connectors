@@ -3,7 +3,7 @@ include <../rebar_insert.scad>
 Probe = "reference"; // [reference, slot_void, band_solid]
 
 probeDiameter = 0.3;
-probeZ = Flange_Thickness_mm + 8;
+probeZ = Helix_Lead_mm / 8;
 probeRadius = (_coreBoreDiameter() + Cage_D_mm) / 4;
 rightHandAngle = 360 * probeZ / Helix_Lead_mm;
 
