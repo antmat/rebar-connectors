@@ -2,13 +2,13 @@ $fn = $preview ? 64 : 128;
 
 /* [Output] */
 
-Part = "calibration_set"; // [calibration_single, calibration_set, full, assembly_preview]
-Fit = "medium"; // [narrow, medium, wide]
+Part = "full"; // [calibration_single, calibration_set, full, assembly_preview]
+Fit = "wide"; // [narrow, medium, wide]
 Diagnostics = false;
 
 /* [Measured rebar] */
 
-Core_D_mm = 9.1; // [5:0.1:20]
+Core_D_mm = 9.3; // [5:0.1:20]
 Core_Clearance_mm = 0.4; // [0.1:0.1:1]
 Rebar_Max_D_mm = 11.3; // [5:0.1:25]
 Rib_Width_mm = 2.5; // [0.5:0.1:6]
@@ -18,7 +18,7 @@ Helix_Hand = "right"; // [right, left]
 
 /* [Socket and cage] */
 
-Socket_D_mm = 12.2; // [5:0.1:30]
+Socket_D_mm = 12.3; // [5:0.1:30]
 Socket_Depth_mm = 30; // [5:1:50]
 Cage_D_mm = 12; // [5:0.1:30]
 Full_Length_mm = 29; // [5:1:40]
@@ -29,7 +29,7 @@ Flange_Thickness_mm = 2.4; // [0.8:0.2:5]
 /* [Hidden] */
 
 Render_Model = true;
-Rib_Radial_Clearance_mm = 0.15;
+Rib_Radial_Clearance_mm = 0.3;
 fitClearanceStart = 0.2;
 fitClearanceStep = 0.1;
 fudge = 0.02;
