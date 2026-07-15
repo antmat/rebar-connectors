@@ -10,9 +10,11 @@ PROBE_MODEL = ROOT / "tests" / "helical_insert_probes.scad"
 EXPORT_SCRIPT = ROOT / "scripts" / "render_rebar_insert.sh"
 
 FIT_DIMENSIONS = {
+    "vloose": (1.1, 12.0),
     "loose": (1.2, 12.2),
     "medium": (1.3, 12.4),
     "tight": (1.4, 12.6),
+    "vtight": (1.5, 12.8),
 }
 
 
@@ -91,7 +93,10 @@ class HelicalInsertTest(unittest.TestCase):
 
     def test_calibration_metrics_match_measured_rebar(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            for fit, (expected_wall, expected_cage) in FIT_DIMENSIONS.items():
+            for marker_count, (
+                fit,
+                (expected_wall, expected_cage),
+            ) in enumerate(FIT_DIMENSIONS.items(), start=1):
                 with self.subTest(fit=fit):
                     metrics = read_metrics(
                         "calibration_single",
@@ -115,6 +120,9 @@ class HelicalInsertTest(unittest.TestCase):
                     self.assertAlmostEqual(metrics["lead"], 45.0)
                     self.assertEqual(metrics["starts"], 2)
                     self.assertEqual(metrics["twist_sign"], -1)
+                    self.assertIn("marker_count", metrics)
+                    self.assertEqual(metrics["marker_count"], marker_count)
+                    self.assertAlmostEqual(metrics["cap_t"], 0.5)
 
     def test_tight_insert_may_exceed_reference_socket_diameter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -169,9 +177,9 @@ class HelicalInsertTest(unittest.TestCase):
         self.assertEqual(stats.components, 1)
         self.assertGreater(stats.volume, 100)
         self.assertAlmostEqual(stats.bounds_min[2], 0.0, places=3)
-        self.assertAlmostEqual(stats.dimensions[2], 14.4, places=3)
+        self.assertAlmostEqual(stats.dimensions[2], 14.9, places=3)
 
-    def test_calibration_set_contains_three_separate_parts(self) -> None:
+    def test_calibration_set_contains_five_separate_parts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result, output = render_model(
                 "calibration_set",
@@ -180,12 +188,12 @@ class HelicalInsertTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             stats = inspect_binary_stl(output)
         self.assertEqual(stats.nonmanifold_edges, 0)
-        self.assertEqual(stats.components, 3)
+        self.assertEqual(stats.components, 5)
         self.assertAlmostEqual(stats.bounds_min[2], 0.0, places=3)
-        self.assertAlmostEqual(stats.dimensions[2], 14.4, places=3)
-        self.assertLess(stats.dimensions[0], 60.0)
+        self.assertAlmostEqual(stats.dimensions[2], 14.9, places=3)
+        self.assertLess(stats.dimensions[0], 100.0)
 
-    def test_full_insert_is_one_31_4_mm_component(self) -> None:
+    def test_full_insert_is_one_31_9_mm_component(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result, output = render_model("full", directory)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -194,7 +202,55 @@ class HelicalInsertTest(unittest.TestCase):
         self.assertEqual(stats.components, 1)
         self.assertGreater(stats.volume, 250)
         self.assertAlmostEqual(stats.bounds_min[2], 0.0, places=3)
-        self.assertAlmostEqual(stats.dimensions[2], 31.4, places=3)
+        self.assertAlmostEqual(stats.dimensions[2], 31.9, places=3)
+
+    def test_driver_is_one_open_22_by_35_mm_tube(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result, output = render_model("driver", directory)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            stats = inspect_binary_stl(output)
+            metrics = read_metrics("driver", "medium", directory)
+        self.assertEqual(stats.nonmanifold_edges, 0)
+        self.assertEqual(stats.components, 1)
+        self.assertAlmostEqual(stats.dimensions[0], 22.0, places=3)
+        self.assertAlmostEqual(stats.dimensions[1], 22.0, places=3)
+        self.assertAlmostEqual(stats.dimensions[2], 35.0, places=3)
+        self.assertAlmostEqual(metrics["driver_inner_d"], 13.4)
+        self.assertAlmostEqual(metrics["driver_outer_d"], 22.0)
+        self.assertAlmostEqual(metrics["driver_length"], 35.0)
+
+    def test_cap_is_solid_and_bore_stays_open_below_it(self) -> None:
+        cases = (
+            ("cap_reference", "cap_solid", 3),
+            ("below_cap_reference", "below_cap_void", 1),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            for reference_probe, insert_probe, components in cases:
+                with self.subTest(probe=insert_probe):
+                    reference_result, reference_output = render_probe(
+                        reference_probe,
+                        directory,
+                    )
+                    self.assertEqual(
+                        reference_result.returncode,
+                        0,
+                        reference_result.stdout + reference_result.stderr,
+                    )
+                    result, output = render_probe(insert_probe, directory)
+                    self.assertEqual(
+                        result.returncode,
+                        0,
+                        result.stdout + result.stderr,
+                    )
+                    reference = inspect_binary_stl(reference_output)
+                    stats = inspect_binary_stl(output)
+                    self.assertEqual(stats.nonmanifold_edges, 0)
+                    self.assertEqual(stats.components, components)
+                    self.assertAlmostEqual(
+                        stats.volume,
+                        reference.volume,
+                        delta=reference.volume * 0.05,
+                    )
 
     def test_right_hand_slots_are_void_and_quadrature_bands_are_solid(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

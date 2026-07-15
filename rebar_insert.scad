@@ -2,8 +2,8 @@ $fn = $preview ? 64 : 128;
 
 /* [Output] */
 
-Part = "full"; // [calibration_single, calibration_set, full, assembly_preview]
-Fit = "medium"; // [loose, medium, tight]
+Part = "full"; // [calibration_single, calibration_set, full, driver, assembly_preview]
+Fit = "medium"; // [vloose, loose, medium, tight, vtight]
 Diagnostics = false;
 
 /* [Measured rebar] */
@@ -31,29 +31,42 @@ Calibration_Length_mm = 12; // [5:1:20]
 Flange_D_mm = 15; // [10:0.5:25]
 Flange_Thickness_mm = 2.4; // [0.8:0.2:5]
 
+/* [Cap and seating driver] */
+
+Cap_Thickness_mm = 0.5; // [0.2:0.1:2]
+Driver_Diametral_Clearance_mm = 0.6; // [0.2:0.1:2]
+Driver_Outer_D_mm = 22; // [16:0.5:35]
+Driver_Length_mm = 35; // [30:1:80]
+
 /* [Hidden] */
 
 Render_Model = true;
 Rib_Radial_Clearance_mm = 0.3;
 fitWallStep = 0.1;
 fudge = 0.02;
+minimumGrooveOuterSkin = 0.1;
+capJoinOverlap = 0.1;
 markerDiameter = 1.2;
 markerRadius = Flange_D_mm / 2;
 previewSocketWall = 4;
 
 function _fitIndex(fit) =
-    fit == "loose" ? 0
-    : fit == "medium" ? 1
-    : fit == "tight" ? 2
+    fit == "vloose" ? 0
+    : fit == "loose" ? 1
+    : fit == "medium" ? 2
+    : fit == "tight" ? 3
+    : fit == "vtight" ? 4
     : assert(false, str("Unsupported Fit: ", fit)) 0;
 function _coreBoreDiameter() =
     Core_D_mm + Core_Diametral_Clearance_mm;
 function _wallThickness(fit) =
-    Wall_Thickness_mm + (_fitIndex(fit) - 1) * fitWallStep;
+    Wall_Thickness_mm + (_fitIndex(fit) - 2) * fitWallStep;
 function _cageDiameter(fit) =
     _coreBoreDiameter() + 2 * _wallThickness(fit);
 function _entryDiameter() =
     _coreBoreDiameter() + Entry_Extra_Clearance_mm;
+function _driverInnerDiameter() =
+    _cageDiameter("vtight") + Driver_Diametral_Clearance_mm;
 // OpenSCAD twist turns opposite to rotate(), so right-hand geometry needs -1.
 function _openscadTwistSign() =
     Helix_Hand == "right" ? -1
@@ -62,8 +75,10 @@ function _openscadTwistSign() =
 function _twist(height) =
     _openscadTwistSign() * 360 * height / Helix_Lead_mm;
 function _slices(height) = max(32, ceil(height / 0.25));
-function _grooveOuterRadius() =
-    Rebar_Max_D_mm / 2 + Rib_Radial_Clearance_mm;
+function _grooveOuterRadius(fit) = min(
+    Rebar_Max_D_mm / 2 + Rib_Radial_Clearance_mm,
+    _cageDiameter(fit) / 2 - minimumGrooveOuterSkin
+);
 function _selectedWorkingLength() =
     Part == "calibration_single" || Part == "calibration_set"
     ? Calibration_Length_mm
@@ -85,18 +100,18 @@ module _validateParameters() {
     assert(Helix_Hand == "right" || Helix_Hand == "left",
         "Helix_Hand must be right or left");
     assert(Socket_D_mm > 0, "Socket_D_mm must be positive");
-    assert(_wallThickness("loose") > 0,
+    assert(_wallThickness("vloose") > 0,
         "Every fit must have positive wall thickness");
-    assert(_cageDiameter("loose") > _coreBoreDiameter(),
+    assert(_cageDiameter("vloose") > _coreBoreDiameter(),
         "Every cage diameter must exceed the core bore");
-    assert(_grooveOuterRadius() < _cageDiameter("loose") / 2,
+    assert(_grooveOuterRadius("vloose") < _cageDiameter("vloose") / 2,
         "Radial rib clearance must stay inside every cage diameter");
     assert(Full_Length_mm > 0 && Full_Length_mm < Socket_Depth_mm,
         "Full_Length_mm must be positive and shorter than the socket");
     assert(Calibration_Length_mm > 0
         && Calibration_Length_mm < Socket_Depth_mm,
         "Calibration_Length_mm must be positive and shorter than the socket");
-    assert(Flange_D_mm > _cageDiameter("tight"),
+    assert(Flange_D_mm > _cageDiameter("vtight"),
         "Flange_D_mm must exceed every cage diameter");
     assert(Flange_Thickness_mm > 0,
         "Flange_Thickness_mm must be positive");
@@ -106,6 +121,16 @@ module _validateParameters() {
         "Entry diameter must not be smaller than the core bore");
     assert(_entryDiameter() < Flange_D_mm,
         "Entry diameter must stay inside Flange_D_mm");
+    assert(Cap_Thickness_mm > 0,
+        "Cap_Thickness_mm must be positive");
+    assert(Driver_Diametral_Clearance_mm > 0,
+        "Driver_Diametral_Clearance_mm must be positive");
+    assert(_driverInnerDiameter() > _cageDiameter("vtight"),
+        "Driver inner diameter must exceed the largest cage diameter");
+    assert(Driver_Outer_D_mm > _driverInnerDiameter(),
+        "Driver outer diameter must exceed its inner diameter");
+    assert(Driver_Length_mm > Full_Length_mm + Cap_Thickness_mm,
+        "Driver length must exceed the capped sleeve body length");
     assert(_fitIndex(Fit) >= 0);
     children();
 }
@@ -159,37 +184,41 @@ module _throughSlots(slotWidth, totalHeight, cageDiameter) {
 module helicalInsert(fit, workingLength, markerCount) {
     totalHeight = Flange_Thickness_mm + workingLength;
     cageDiameter = _cageDiameter(fit);
-    difference() {
-        union() {
-            cylinder(d=Flange_D_mm, h=Flange_Thickness_mm);
+    union() {
+        difference() {
+            union() {
+                cylinder(d=Flange_D_mm, h=Flange_Thickness_mm);
+                translate([0, 0, Flange_Thickness_mm - fudge])
+                    cylinder(
+                        d=cageDiameter,
+                        h=workingLength + fudge + capJoinOverlap
+                    );
+                _markerBumps(markerCount);
+            }
+            translate([0, 0, -fudge])
+                cylinder(
+                    d1=_entryDiameter(),
+                    d2=_coreBoreDiameter(),
+                    h=Flange_Thickness_mm + 2 * fudge
+                );
             translate([0, 0, Flange_Thickness_mm - fudge])
                 cylinder(
-                    d=cageDiameter,
-                    h=workingLength + fudge
+                    d=_coreBoreDiameter(),
+                    h=workingLength + 2 * fudge
                 );
-            _markerBumps(markerCount);
+            _helicalCutters(
+                slotWidth=Rib_Slot_Width_mm,
+                totalHeight=totalHeight,
+                outerRadius=_grooveOuterRadius(fit)
+            );
+            _throughSlots(
+                slotWidth=Rib_Slot_Width_mm,
+                totalHeight=totalHeight,
+                cageDiameter=cageDiameter
+            );
         }
-        translate([0, 0, -fudge])
-            cylinder(
-                d1=_entryDiameter(),
-                d2=_coreBoreDiameter(),
-                h=Flange_Thickness_mm + 2 * fudge
-            );
-        translate([0, 0, Flange_Thickness_mm - fudge])
-            cylinder(
-                d=_coreBoreDiameter(),
-                h=workingLength + 2 * fudge
-            );
-        _helicalCutters(
-            slotWidth=Rib_Slot_Width_mm,
-            totalHeight=totalHeight,
-            outerRadius=_grooveOuterRadius()
-        );
-        _throughSlots(
-            slotWidth=Rib_Slot_Width_mm,
-            totalHeight=totalHeight,
-            cageDiameter=cageDiameter
-        );
+        translate([0, 0, totalHeight])
+            cylinder(d=cageDiameter, h=Cap_Thickness_mm);
     }
 }
 
@@ -202,9 +231,9 @@ module calibrationSingle() {
 }
 
 module calibrationSet() {
-    for (index = [0 : 2]) {
-        fit = ["loose", "medium", "tight"][index];
-        translate([(index - 1) * 20, 0, 0])
+    for (index = [0 : 4]) {
+        fit = ["vloose", "loose", "medium", "tight", "vtight"][index];
+        translate([(index - 2) * 20, 0, 0])
             helicalInsert(
                 fit=fit,
                 workingLength=Calibration_Length_mm,
@@ -219,6 +248,17 @@ module fullInsert() {
         workingLength=Full_Length_mm,
         markerCount=_fitIndex(Fit) + 1
     );
+}
+
+module driverTool() {
+    difference() {
+        cylinder(d=Driver_Outer_D_mm, h=Driver_Length_mm);
+        translate([0, 0, -fudge])
+            cylinder(
+                d=_driverInnerDiameter(),
+                h=Driver_Length_mm + 2 * fudge
+            );
+    }
 }
 
 module _rebarModel(height) {
@@ -278,8 +318,13 @@ module _diagnostics() {
             " lead=", Helix_Lead_mm,
             " starts=", Helix_Starts,
             " twist_sign=", _openscadTwistSign(),
+            " marker_count=", _fitIndex(Fit) + 1,
             " flange_d=", Flange_D_mm,
-            " flange_t=", Flange_Thickness_mm
+            " flange_t=", Flange_Thickness_mm,
+            " cap_t=", Cap_Thickness_mm,
+            " driver_inner_d=", _driverInnerDiameter(),
+            " driver_outer_d=", Driver_Outer_D_mm,
+            " driver_length=", Driver_Length_mm
         ));
 }
 
@@ -292,6 +337,8 @@ if (Render_Model)
             calibrationSet();
         else if (Part == "full")
             fullInsert();
+        else if (Part == "driver")
+            driverTool();
         else if (Part == "assembly_preview")
             assemblyPreview();
         else
