@@ -18,9 +18,13 @@ build/*
 !build/helical_insert_calibration_loose.stl
 !build/helical_insert_calibration_medium.stl
 !build/helical_insert_calibration_tight.stl
+!build/helical_insert_calibration_vloose.stl
+!build/helical_insert_calibration_vtight.stl
 !build/helical_insert_calibration_set.stl
 !build/helical_insert_full_medium.stl
+!build/helical_insert_driver.stl
 !build/helical_insert_calibration_set.png
 !build/helical_insert_full_medium.png
 !build/helical_insert_assembly_preview.png
+!build/helical_insert_driver.png
 .worktrees/

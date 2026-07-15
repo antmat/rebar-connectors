@@ -16,7 +16,7 @@ run_scad() {
 
 mkdir -p "$ROOT/build"
 
-for fit in loose medium tight; do
+for fit in vloose loose medium tight vtight; do
     run_scad \
         --backend Manifold \
         --hardwarnings \
@@ -33,6 +33,14 @@ run_scad \
     --export-format binstl \
     -D 'Part="calibration_set"' \
     -o "$ROOT/build/helical_insert_calibration_set.stl" \
+    "$ROOT/rebar_insert.scad"
+
+run_scad \
+    --backend Manifold \
+    --hardwarnings \
+    --export-format binstl \
+    -D 'Part="driver"' \
+    -o "$ROOT/build/helical_insert_driver.stl" \
     "$ROOT/rebar_insert.scad"
 
 run_scad \
@@ -69,6 +77,19 @@ run_scad \
     -D 'Part="full"' \
     -D 'Fit="medium"' \
     -o "$ROOT/build/helical_insert_full_medium.png" \
+    "$ROOT/rebar_insert.scad"
+
+run_scad \
+    --backend Manifold \
+    --hardwarnings \
+    --render \
+    --imgsize 1600,1200 \
+    --autocenter \
+    --viewall \
+    --projection o \
+    --camera 65,-90,70,0,0,17 \
+    -D 'Part="driver"' \
+    -o "$ROOT/build/helical_insert_driver.png" \
     "$ROOT/rebar_insert.scad"
 
 run_scad \

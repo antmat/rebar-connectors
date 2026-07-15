@@ -286,7 +286,7 @@ module assemblyPreview() {
         fullInsert();
     color([0.35, 0.35, 0.38])
         translate([0, 0, -4])
-            _rebarModel(totalHeight + 8);
+            _rebarModel(totalHeight + 4);
     color([0.1, 0.65, 0.8, 0.25])
         translate([0, 0, Flange_Thickness_mm])
             difference() {
