@@ -15,9 +15,12 @@ build/*
 !build/print_set.stl
 !build/assembly_preview.png
 !build/assembly_preview_side.png
-!build/tpu_insert_loose.stl
-!build/tpu_insert_medium.stl
-!build/tpu_insert_tight.stl
-!build/tpu_insert_fit_set.stl
-!build/tpu_insert_fit_set.png
+!build/helical_insert_calibration_narrow.stl
+!build/helical_insert_calibration_medium.stl
+!build/helical_insert_calibration_wide.stl
+!build/helical_insert_calibration_set.stl
+!build/helical_insert_full_medium.stl
+!build/helical_insert_calibration_set.png
+!build/helical_insert_full_medium.png
+!build/helical_insert_assembly_preview.png
 .worktrees/
