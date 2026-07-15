@@ -6,6 +6,7 @@ import math
 LOWER_STOP_MM = 11.248023074035522
 UPPER_STOP_MM = 13.6446737856353
 APEX_STOP_MM = 23.432072176330976
+INSERT_STOP_GAP_MM = 1.0
 ROOF_ANGLE_DEG = 30.0
 
 
@@ -35,23 +36,41 @@ def cut_groups(
         (
             "Нижний восьмиугольник",
             8,
-            octagon_side_mm - 2 * LOWER_STOP_MM,
+            octagon_side_mm - 2 * (LOWER_STOP_MM + INSERT_STOP_GAP_MM),
         ),
         (
             "Верхний восьмиугольник",
             8,
-            octagon_side_mm - 2 * UPPER_STOP_MM,
+            octagon_side_mm - 2 * (UPPER_STOP_MM + INSERT_STOP_GAP_MM),
         ),
         (
             "Вертикальные стойки",
             8,
-            height_mm - LOWER_STOP_MM - UPPER_STOP_MM,
+            height_mm
+            - (LOWER_STOP_MM + INSERT_STOP_GAP_MM)
+            - (UPPER_STOP_MM + INSERT_STOP_GAP_MM),
         ),
         (
             "Лучи крыши",
             8,
-            roof_centerline_mm - UPPER_STOP_MM - APEX_STOP_MM,
+            roof_centerline_mm
+            - (UPPER_STOP_MM + INSERT_STOP_GAP_MM)
+            - (APEX_STOP_MM + INSERT_STOP_GAP_MM),
         ),
+    ]
+
+
+def round_cut_mm(value: float) -> int:
+    return math.floor(value + 0.5)
+
+
+def rounded_cut_groups(
+    diameter_mm: float,
+    height_mm: float,
+) -> list[tuple[str, int, int]]:
+    return [
+        (name, count, round_cut_mm(length))
+        for name, count, length in cut_groups(diameter_mm, height_mm)
     ]
 
 
@@ -82,10 +101,10 @@ def parser() -> argparse.ArgumentParser:
 def main() -> None:
     argument_parser = parser()
     arguments = argument_parser.parse_args()
-    groups = cut_groups(arguments.diameter, arguments.height)
+    exact_groups = cut_groups(arguments.diameter, arguments.height)
     invalid = [
         (name, length)
-        for name, _, length in groups
+        for name, _, length in exact_groups
         if length <= 0
     ]
     if invalid:
@@ -98,6 +117,7 @@ def main() -> None:
             + details
         )
 
+    groups = rounded_cut_groups(arguments.diameter, arguments.height)
     piece_count = sum(count for _, count, _ in groups)
     total_mm = sum(count * length for _, count, length in groups)
     if not math.isfinite(total_mm):
@@ -109,9 +129,10 @@ def main() -> None:
     print(f"Высота конструкции:  {arguments.height:.1f} мм")
     print()
     for name, count, length in groups:
-        print(f"{name:<24}: {count} шт. × {length:.1f} мм")
+        print(f"{name:<24}: {count} шт. × {length} мм")
 
     print()
+    print("Рекомендуемый допуск реза: ±1 мм")
     print(f"Всего: {piece_count} отрезка, {total_mm / 1000:.3f} м")
 
 
