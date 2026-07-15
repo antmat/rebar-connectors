@@ -76,6 +76,8 @@ module _validateParameters() {
     assert(Rebar_Max_D_mm > Core_D_mm,
         "Rebar_Max_D_mm must exceed Core_D_mm");
     assert(Rib_Width_mm > 0, "Rib_Width_mm must be positive");
+    assert(Rib_Radial_Clearance_mm > 0,
+        "Rib_Radial_Clearance_mm must be positive");
     assert(Rib_Slot_Width_mm > Rib_Width_mm,
         "Rib_Slot_Width_mm must exceed Rib_Width_mm");
     assert(Helix_Lead_mm > 0, "Helix_Lead_mm must be positive");
@@ -94,8 +96,6 @@ module _validateParameters() {
     assert(Calibration_Length_mm > 0
         && Calibration_Length_mm < Socket_Depth_mm,
         "Calibration_Length_mm must be positive and shorter than the socket");
-    assert(Flange_D_mm > Socket_D_mm,
-        "Flange_D_mm must retain the insert outside the socket");
     assert(Flange_D_mm > _cageDiameter("tight"),
         "Flange_D_mm must exceed every cage diameter");
     assert(Flange_Thickness_mm > 0,

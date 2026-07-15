@@ -75,7 +75,7 @@ self.assertAlmostEqual(metrics["entry_d"], 10.8)
 Run:
 
 ```bash
-python3 -m unittest tests.test_helical_rebar_insert -v
+python3 -m unittest discover -s tests -p 'test_helical_rebar_insert.py' -v
 ```
 
 Expected: FAIL, потому что `loose/tight` ещё не поддерживаются, диагностических полей нет, а вход в буртике цилиндрический.
@@ -190,7 +190,7 @@ translate([0, 0, Flange_Thickness_mm - fudge])
 Run:
 
 ```bash
-python3 -m unittest tests.test_helical_rebar_insert -v
+python3 -m unittest discover -s tests -p 'test_helical_rebar_insert.py' -v
 python3 -m unittest discover -s tests -v
 ```
 

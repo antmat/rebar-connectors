@@ -128,6 +128,35 @@ class HelicalInsertTest(unittest.TestCase):
         self.assertEqual(stats.nonmanifold_edges, 0)
         self.assertEqual(stats.components, 1)
 
+    def test_reference_socket_diameter_does_not_constrain_insert(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "large-reference-socket.stl"
+            result = run_openscad(
+                MODEL,
+                output,
+                defines=(
+                    'Part="calibration_single"',
+                    "Socket_D_mm=16",
+                ),
+                extra_args=("--export-format", "binstl"),
+            )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_radial_rib_clearance_must_be_positive(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "invalid-radial-clearance.stl"
+            result = run_openscad(
+                MODEL,
+                output,
+                defines=("Rib_Radial_Clearance_mm=0",),
+                extra_args=("--export-format", "binstl"),
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "Rib_Radial_Clearance_mm must be positive",
+            result.stdout + result.stderr,
+        )
+
     def test_calibration_single_is_one_printable_component(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result, output = render_model(
