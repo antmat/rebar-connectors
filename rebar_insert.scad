@@ -79,8 +79,9 @@ module _validateParameters() {
         "Radial rib clearance must stay inside Cage_D_mm");
     assert(Full_Length_mm > 0 && Full_Length_mm < Socket_Depth_mm,
         "Full_Length_mm must be positive and shorter than the socket");
-    assert(Calibration_Length_mm > 0,
-        "Calibration_Length_mm must be positive");
+    assert(Calibration_Length_mm > 0
+        && Calibration_Length_mm < Socket_Depth_mm,
+        "Calibration_Length_mm must be positive and shorter than the socket");
     assert(Flange_D_mm > Socket_D_mm,
         "Flange_D_mm must retain the cage outside the socket");
     assert(Flange_Thickness_mm > 0,

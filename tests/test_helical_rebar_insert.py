@@ -64,6 +64,24 @@ def render_probe(probe: str, directory: str):
 
 
 class HelicalInsertTest(unittest.TestCase):
+    def test_calibration_length_must_fit_socket_depth(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "too-long-calibration.stl"
+            result = run_openscad(
+                MODEL,
+                output,
+                defines=(
+                    'Part="calibration_single"',
+                    "Calibration_Length_mm=30",
+                ),
+                extra_args=("--export-format", "binstl"),
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "Calibration_Length_mm must be positive and shorter than the socket",
+            result.stdout + result.stderr,
+        )
+
     def test_calibration_metrics_match_measured_rebar(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             for fit, expected_width in FIT_WIDTHS.items():
