@@ -16,7 +16,7 @@ run_scad() {
 
 mkdir -p "$ROOT/build"
 
-for fit in vloose loose medium tight vtight; do
+for fit in vvloose vloose loose medium tight vtight; do
     run_scad \
         --backend Manifold \
         --hardwarnings \

@@ -18,6 +18,7 @@ build/*
 !build/helical_insert_calibration_loose.stl
 !build/helical_insert_calibration_medium.stl
 !build/helical_insert_calibration_tight.stl
+!build/helical_insert_calibration_vvloose.stl
 !build/helical_insert_calibration_vloose.stl
 !build/helical_insert_calibration_vtight.stl
 !build/helical_insert_calibration_set.stl

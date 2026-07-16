@@ -72,9 +72,10 @@ class HelicalInsertTest(unittest.TestCase):
     def test_export_script_uses_wall_fit_names(self) -> None:
         script = EXPORT_SCRIPT.read_text()
         self.assertIn(
-            "for fit in vloose loose medium tight vtight",
+            "for fit in vvloose vloose loose medium tight vtight",
             script,
         )
+        self.assertIn("helical_insert_calibration_$fit.stl", script)
         self.assertIn("Part=\"driver\"", script)
         self.assertIn("helical_insert_driver.stl", script)
         self.assertIn("helical_insert_driver.png", script)
