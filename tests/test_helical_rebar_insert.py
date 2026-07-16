@@ -11,6 +11,7 @@ PROBE_MODEL = ROOT / "tests" / "helical_insert_probes.scad"
 EXPORT_SCRIPT = ROOT / "scripts" / "render_rebar_insert.sh"
 
 FIT_DIMENSIONS = {
+    "vvloose": (1.0, 11.8),
     "vloose": (1.1, 12.0),
     "loose": (1.2, 12.2),
     "medium": (1.3, 12.4),
@@ -103,7 +104,7 @@ class HelicalInsertTest(unittest.TestCase):
             for marker_count, (
                 fit,
                 (expected_wall, expected_cage),
-            ) in enumerate(FIT_DIMENSIONS.items(), start=1):
+            ) in enumerate(FIT_DIMENSIONS.items()):
                 with self.subTest(fit=fit):
                     metrics = read_metrics(
                         "calibration_single",
@@ -209,7 +210,21 @@ class HelicalInsertTest(unittest.TestCase):
         self.assertAlmostEqual(stats.bounds_min[2], 0.0, places=3)
         self.assertAlmostEqual(stats.dimensions[2], 14.9, places=3)
 
-    def test_calibration_set_contains_five_separate_parts(self) -> None:
+    def test_vvloose_has_no_marker_bumps(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result, output = render_model(
+                "calibration_single",
+                directory,
+                fit="vvloose",
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            stats = inspect_binary_stl(output)
+        self.assertEqual(stats.nonmanifold_edges, 0)
+        self.assertEqual(stats.components, 1)
+        self.assertAlmostEqual(stats.dimensions[0], 15.0, places=3)
+        self.assertAlmostEqual(stats.dimensions[1], 15.0, places=3)
+
+    def test_calibration_set_contains_six_separate_parts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result, output = render_model(
                 "calibration_set",
@@ -218,10 +233,10 @@ class HelicalInsertTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             stats = inspect_binary_stl(output)
         self.assertEqual(stats.nonmanifold_edges, 0)
-        self.assertEqual(stats.components, 5)
+        self.assertEqual(stats.components, 6)
         self.assertAlmostEqual(stats.bounds_min[2], 0.0, places=3)
+        self.assertAlmostEqual(stats.dimensions[0], 115.0, places=3)
         self.assertAlmostEqual(stats.dimensions[2], 14.9, places=3)
-        self.assertLess(stats.dimensions[0], 100.0)
 
     def test_full_insert_is_one_31_9_mm_component(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

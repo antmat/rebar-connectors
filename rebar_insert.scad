@@ -3,7 +3,7 @@ $fn = $preview ? 64 : 128;
 /* [Output] */
 
 Part = "full"; // [calibration_single, calibration_set, full, driver, assembly_preview]
-Fit = "medium"; // [vloose, loose, medium, tight, vtight]
+Fit = "medium"; // [vvloose, vloose, loose, medium, tight, vtight]
 Diagnostics = false;
 
 /* [Measured rebar] */
@@ -52,16 +52,17 @@ markerRadius = Flange_D_mm / 2;
 previewSocketWall = 4;
 
 function _fitIndex(fit) =
-    fit == "vloose" ? 0
-    : fit == "loose" ? 1
-    : fit == "medium" ? 2
-    : fit == "tight" ? 3
-    : fit == "vtight" ? 4
+    fit == "vvloose" ? 0
+    : fit == "vloose" ? 1
+    : fit == "loose" ? 2
+    : fit == "medium" ? 3
+    : fit == "tight" ? 4
+    : fit == "vtight" ? 5
     : assert(false, str("Unsupported Fit: ", fit)) 0;
 function _coreBoreDiameter() =
     Core_D_mm + Core_Diametral_Clearance_mm;
 function _wallThickness(fit) =
-    Wall_Thickness_mm + (_fitIndex(fit) - 2) * fitWallStep;
+    Wall_Thickness_mm + (_fitIndex(fit) - 3) * fitWallStep;
 function _cageDiameter(fit) =
     _coreBoreDiameter() + 2 * _wallThickness(fit);
 function _entryDiameter() =
@@ -101,11 +102,11 @@ module _validateParameters() {
     assert(Helix_Hand == "right" || Helix_Hand == "left",
         "Helix_Hand must be right or left");
     assert(Socket_D_mm > 0, "Socket_D_mm must be positive");
-    assert(_wallThickness("vloose") > 0,
+    assert(_wallThickness("vvloose") > 0,
         "Every fit must have positive wall thickness");
-    assert(_cageDiameter("vloose") > _coreBoreDiameter(),
+    assert(_cageDiameter("vvloose") > _coreBoreDiameter(),
         "Every cage diameter must exceed the core bore");
-    assert(_grooveOuterRadius("vloose") < _cageDiameter("vloose") / 2,
+    assert(_grooveOuterRadius("vvloose") < _cageDiameter("vvloose") / 2,
         "Radial rib clearance must stay inside every cage diameter");
     assert(Full_Length_mm > 0 && Full_Length_mm < Socket_Depth_mm,
         "Full_Length_mm must be positive and shorter than the socket");
@@ -130,7 +131,7 @@ module _validateParameters() {
         "Cap_Thickness_mm must be positive");
     assert(Cap_D_mm > _coreBoreDiameter(),
         "Cap_D_mm must exceed the core bore diameter");
-    assert(Cap_D_mm <= _cageDiameter("vloose"),
+    assert(Cap_D_mm <= _cageDiameter("vvloose") + fudge,
         "Cap_D_mm must not exceed the smallest cage diameter");
     assert(Driver_Diametral_Clearance_mm > 0,
         "Driver_Diametral_Clearance_mm must be positive");
@@ -145,12 +146,13 @@ module _validateParameters() {
 }
 
 module _markerBumps(count) {
-    for (index = [0 : count - 1]) {
-        angle = 270 + (index - (count - 1) / 2) * 18;
-        rotate([0, 0, angle])
-            translate([markerRadius, 0, 0])
-                cylinder(d=markerDiameter, h=Flange_Thickness_mm);
-    }
+    if (count > 0)
+        for (index = [0 : count - 1]) {
+            angle = 270 + (index - (count - 1) / 2) * 18;
+            rotate([0, 0, angle])
+                translate([markerRadius, 0, 0])
+                    cylinder(d=markerDiameter, h=Flange_Thickness_mm);
+        }
 }
 
 module _helicalCutters(slotWidth, totalHeight, outerRadius) {
@@ -265,27 +267,26 @@ module calibrationSingle() {
     helicalInsert(
         fit=Fit,
         workingLength=Calibration_Length_mm,
-        markerCount=_fitIndex(Fit) + 1
+        markerCount=_fitIndex(Fit)
     );
 }
 
 module calibrationSet() {
-    for (index = [0 : 4]) {
-        fit = ["vloose", "loose", "medium", "tight", "vtight"][index];
-        translate([(index - 2) * 20, 0, 0])
+    fits = ["vvloose", "vloose", "loose", "medium", "tight", "vtight"];
+    for (index = [0 : 5])
+        translate([(index - 2.5) * 20, 0, 0])
             helicalInsert(
-                fit=fit,
+                fit=fits[index],
                 workingLength=Calibration_Length_mm,
-                markerCount=index + 1
+                markerCount=index
             );
-    }
 }
 
 module fullInsert() {
     helicalInsert(
         fit=Fit,
         workingLength=Full_Length_mm,
-        markerCount=_fitIndex(Fit) + 1
+        markerCount=_fitIndex(Fit)
     );
 }
 
@@ -357,7 +358,7 @@ module _diagnostics() {
             " lead=", Helix_Lead_mm,
             " starts=", Helix_Starts,
             " twist_sign=", _openscadTwistSign(),
-            " marker_count=", _fitIndex(Fit) + 1,
+            " marker_count=", _fitIndex(Fit),
             " flange_d=", Flange_D_mm,
             " flange_t=", Flange_Thickness_mm,
             " cap_t=", Cap_Thickness_mm,

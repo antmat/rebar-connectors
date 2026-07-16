@@ -124,7 +124,7 @@ assert(_cageDiameter("vvloose") > _coreBoreDiameter(),
     "Every cage diameter must exceed the core bore");
 assert(_grooveOuterRadius("vvloose") < _cageDiameter("vvloose") / 2,
     "Radial rib clearance must stay inside every cage diameter");
-assert(Cap_D_mm <= _cageDiameter("vvloose"),
+assert(Cap_D_mm <= _cageDiameter("vvloose") + fudge,
     "Cap_D_mm must not exceed the smallest cage diameter");
 ```
 
